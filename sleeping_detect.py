@@ -1,41 +1,46 @@
 '''This script detects if a person is drowsy or not,using dlib and eye aspect ratio
 calculations. Uses webcam video feed as input.'''
 
-#Import necessary libraries
-from scipy.spatial import distance
-from imutils import face_utils
-import numpy as np
-import pygame #For playing sound
+#Import libraries
 import time
 import dlib
 import cv2
+from scipy.spatial import distance
+from imutils import face_utils
+import numpy as np
+import pygame
+
 
 #Initialize Pygame and load music
 pygame.mixer.init()
 pygame.mixer.music.load('audio/z.ogg')
 
-#Minimum threshold of eye aspect ratio below which alarm is triggerd
-EYE_ASPECT_RATIO_THRESHOLD = 0.3
+#Minimum threshold of eye aspect ratio below which alarm is raise
+Eye_aspect_ratio = 0.3
 
-#Minimum consecutive frames for which eye ratio is below threshold for alarm to be triggered
-EYE_ASPECT_RATIO_CONSEC_FRAMES = 30
+#Minimum consecutive frames for which eye ratio is below threshold for alarm raised
+Eye_aspect_ratio_consec_frmaes = 30
 
-#COunts no. of consecutuve frames below threshold value
+#Counts no. of consecutuve frames below threshold
 COUNTER = 0
 
-#Load face cascade which will be used to draw a rectangle around detected faces.
+#Load face cascade to draw a rectangle around detected faces.
 face_cascade = cv2.CascadeClassifier("haarcascades/haarcascade_frontalface_default.xml")
 
 #This function calculates and return eye aspect ratio
+#eyes would look something like that
+#    1  2
+# 0        3
+#    5  4
 def eye_aspect_ratio(eye):
-    A = distance.euclidean(eye[1], eye[5])
-    B = distance.euclidean(eye[2], eye[4])
-    C = distance.euclidean(eye[0], eye[3])
+    a = distance.euclidean(eye[1], eye[5])
+    b = distance.euclidean(eye[2], eye[4])
+    c = distance.euclidean(eye[0], eye[3])
 
-    ear = (A+B) / (2*C)
-    return ear
+    ratio = (a+b) / (2*c)
+    return ratio
 
-#Load face detector and predictor, uses dlib shape predictor file
+# uses dlib shape predictor file,Load face detector and predictor,
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
@@ -43,11 +48,11 @@ predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS['left_eye']
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS['right_eye']
 
-#Start webcam video capture
+#Start  video capture
 video_capture = cv2.VideoCapture(0)
 
 #Give some time for camera to initialize(not required)
-time.sleep(2)
+time.sleep(3)
 
 while(True):
     #Read each frame and flip it, and convert to grayscale
@@ -55,23 +60,23 @@ while(True):
     frame = cv2.flip(frame,1)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    #Detect facial points through detector function
+    #Detect all the  facial points through detector function
     faces = detector(gray, 0)
 
     #Detect faces through haarcascade_frontalface_default.xml
     face_rectangle = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-    #Draw rectangle around each face detected
+    #Draw rectangle around  face detected
     for (x,y,w,h) in face_rectangle:
         cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
 
-    #Detect facial points
+    #Detect facial points in the frame
     for face in faces:
 
         shape = predictor(gray, face)
         shape = face_utils.shape_to_np(shape)
 
-        #Get array of coordinates of leftEye and rightEye
+        #Get array of coordinates of eyes of both left and right
         leftEye = shape[lStart:lEnd]
         rightEye = shape[rStart:rEnd]
 
@@ -81,17 +86,18 @@ while(True):
 
         eyeAspectRatio = (leftEyeAspectRatio + rightEyeAspectRatio) / 2
 
-        #Use hull to remove convex contour discrepencies and draw eye shape around eyes
-        leftEyeHull = cv2.convexHull(leftEye)
-        rightEyeHull = cv2.convexHull(rightEye)
-        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+        #Use hull to remove convex contour discrepencies
+        # draw eye shape around eyes
+        lefthull = cv2.convexHull(leftEye)
+        righthull = cv2.convexHull(rightEye)
+        cv2.drawContours(frame, [lefthull], -1, (0, 255, 0), 1)
+        cv2.drawContours(frame, [righthull], -1, (0, 255, 0), 1)
 
-        #Detect if eye aspect ratio is less than threshold
-        if(eyeAspectRatio < EYE_ASPECT_RATIO_THRESHOLD):
+        #Detect if eye aspect ratio is less than threshold count
+        if(eyeAspectRatio < Eye_aspect_ratio):
             COUNTER += 1
-            #If no. of frames is greater than threshold frames,
-            if COUNTER >= EYE_ASPECT_RATIO_CONSEC_FRAMES:
+            #If threshold frames leser than no. of frames,
+            if COUNTER >= Eye_aspect_ratio_consec_frmaes:
                 pygame.mixer.music.play(-1)
                 cv2.putText(frame, "You are Drowsy", (150,200), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0,0,255), 2)
         else:
@@ -103,6 +109,6 @@ while(True):
     if(cv2.waitKey(1) & 0xFF == ord('q')):
         break
 
-#Finally when video capture is over, release the video capture and destroyAllWindows
+#release the video capture and destroyAllWindows
 video_capture.release()
 cv2.destroyAllWindows()
